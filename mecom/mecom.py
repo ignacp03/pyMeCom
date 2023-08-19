@@ -489,7 +489,7 @@ class MeCom:
     """
     SEQUENCE_COUNTER = 1
 
-    def __init__(self, serialport="/dev/ttyUSB0", timeout=1, baudrate=57600,metype = 'TEC'):
+    def __init__(self, serialport="/dev/ttyUSB0", timeout=1, baudrate=57600,metype = 'LDD'):
         """
         Initialize communication with serial port.
         :param serialport: str

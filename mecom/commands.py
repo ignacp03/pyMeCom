@@ -60,8 +60,10 @@ LDD_PARAMETERS = [
     {"id": 1015, "name": "Laser Diode Temperature", "format": "FLOAT32"},
     {"id": 3020, "name": "Current Limit Max [A]", "format": "FLOAT32"},
     {"id": 3040, "name": "Device Address", "format": "INT32"},
+    #Current Tab
     {"id": 2001, "name": "Current CW", "format": "FLOAT32"},
-    {"id": 2020, "name": "Input Source", "format": "INT32"},
+    {"id": 2000, "name": "Input Source", "format": "INT32"},
+    {"id": 2020, "name": "Enable Settings", "format": "INT32"},
     {"id": 102, "name": "Device Serial Number", "format": "INT32"},
     {"id": 3050 , "name": "Baud Rate", "format": "INT32"},
     {"id": 3051 , "name": "Response Delay ", "format": "INT32"},
@@ -75,6 +77,25 @@ LDD_PARAMETERS = [
     {"id": 52101, "name": "Set Output to Push-Pull", "format": "INT32"},
     {"id": 52102, "name": "Set Output States", "format": "INT32"},
     {"id": 52103, "name": "Read Input States", "format": "INT32"},
+    ## LPC commands # LP settings
+    {"id": 5000, "name": "LP Input Source", "format": "INT32"},
+    {"id": 5001, "name": "LP CW", "format": "FLOAT32"},
+    {"id": 5002, "name": "LP High", "format": "FLOAT32"},
+    {"id": 5003, "name": "LP Low", "format": "FLOAT32"},
+    {"id": 5004, "name": " High time", "format": "FLOAT32"},
+    {"id": 5005, "name": " Low time", "format": "FLOAT32"},
+    {"id": 5006, "name": " Rise time", "format": "FLOAT32"},
+    {"id": 5007, "name": " Fall time", "format": "FLOAT32"},
+    #PID LPC params
+    {"id": 5010, "name": "Kp", "format": "FLOAT32"},
+    {"id": 5011, "name": "Ti", "format": "FLOAT32"},
+    {"id": 5012, "name": "Td", "format": "FLOAT32"},
+    {"id": 5013, "name": "Slope Limit", "format": "FLOAT32"},
+    #LPC soft start config
+    {"id": 5020, "name": "Current Limiter Start Value", "format": "FLOAT32"},
+    {"id": 5021, "name": "Current Limiter Ramp", "format": "FLOAT32"},
+    #Monitoring photocurrent(<1mA)
+    {"id": 1060, "name": "Photo Diode Current", "format": "FLOAT32"}
 ]
     
 ERRORS = [
