@@ -95,7 +95,10 @@ LDD_PARAMETERS = [
     {"id": 5020, "name": "Current Limiter Start Value", "format": "FLOAT32"},
     {"id": 5021, "name": "Current Limiter Ramp", "format": "FLOAT32"},
     #Monitoring photocurrent(<1mA)
-    {"id": 1060, "name": "Photo Diode Current", "format": "FLOAT32"}
+    {"id": 1060, "name": "Photo Diode Current", "format": "FLOAT32"}, 
+    #Lookup table
+    {"id": 4200, "name": "Table Interval", "format": "INT32"}, 
+    {"id": 4210, "name": "Table Select", "format": "INT32"}
 ]
     
 ERRORS = [
