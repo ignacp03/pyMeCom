@@ -12,6 +12,7 @@ from serial import Serial
 from PyCRC.CRCCCITT import CRCCCITT
 
 # from this package
+from .lookup_table import Lookup_Table
 from .exceptions import ResponseException, WrongResponseSequence, WrongChecksum, ResponseTimeout, UnknownParameter, UnknownMeComType
 from .commands import TEC_PARAMETERS, LDD_PARAMETERS, ERRORS
 
@@ -182,7 +183,7 @@ class Query(MeFrame):
     _SOURCE = "#"
     _PAYLOAD_START = None
 
-    def __init__(self, parameter=None, address=0, parameter_instance=1):
+    def __init__(self, parameter=None, address=0, parameter_instance=1, table = False, table_instance=1):
         """
         To be initialized with a target device address (default=broadcast), the channel, teh sequence number and a
         Parameter() instance of the corresponding parameter.
@@ -190,21 +191,36 @@ class Query(MeFrame):
         :param sequence: int
         :param address: int
         :param parameter_instance: int
+        :table_data : lookup table data 
+        :table_instance: table number
         """
         super(Query, self).__init__()
 
         if hasattr(self, "_PAYLOAD_START"):
             self.PAYLOAD.append(self._PAYLOAD_START)
+            
 
         self.RESPONSE = None
         self._RESPONSE_FORMAT = None
 
         self.ADDRESS = address
         if parameter is not None:
-            # UNIT16 4 hex digits
-            self.PAYLOAD.append("{:04X}".format(parameter.id))
-        # UNIT8 2 hex digits
-        self.PAYLOAD.append("{:02X}".format(parameter_instance))
+            if parameter == 0:
+                pass
+            else:
+                # UNIT16 4 hex digits
+                self.PAYLOAD.append("{:04X}".format(parameter.id))
+        if parameter_instance is not None:
+            # UNIT8 2 hex digits
+            self.PAYLOAD.append("{:02X}".format(parameter_instance))
+
+        if table:
+            self.PAYLOAD.append("{:02X}".format(int(1)))
+            self.PAYLOAD.append("{:02X}".format(table_instance))
+
+
+    
+
 
     def set_response(self, response_frame):
         """
@@ -218,6 +234,10 @@ class Query(MeFrame):
             self.RESPONSE = ACK()
             self.RESPONSE.decompose(response_frame)
         # is it an info string packet/response_frame does not contain source (!)
+
+        elif len(response_frame) == 12:
+            self.RESPONSE = TDResponse() 
+            self.RESPONSE.decompose(response_frame)
         elif len(response_frame) == 30:
             self.RESPONSE = IFResponse()
             self.RESPONSE.decompose(response_frame)
@@ -289,7 +309,27 @@ class VS(Query):
         # no need to initialize response format, we want ACK
         
         
+class TD(Query):
+    """
+    Implementing Lookup table download
+    """
+    _PAYLOAD_START = '?TD'
+    def __init__(self,table_data = None, address=0, table_instance=1, offset_bytes=0):
+        """
+        Create a query to set a parameter value.
+        :data : list (lookup table)
+        :param address: int
+        :param table_instances: list
+        """
+        
+        super(TD,self).__init__(address, parameter_instance = None,  table = True, table_instance = 1)
+        
+        self.PAYLOAD.append("{:08X}".format(offset_bytes))
+        for byte in table_data:
+            self.PAYLOAD.append("{:02X}".format(int(byte)))
 
+
+        
 
 class RS(Query):
     """
@@ -331,6 +371,25 @@ class IF(Query):
 
         # no need to initialize response format, we want ACK
 
+
+class TDResponse(MeFrame):
+    """
+    Frame for the device response to TD querry
+    """
+    _SOURCE = "!"
+
+    def decompose(self, frame_bytes):
+        """
+        Takes bytes as input and builds the instance.
+        :param frame_bytes: bytes
+        :return:
+        """
+        frame_bytes = self._SOURCE.encode() + frame_bytes
+        self._decompose_header(frame_bytes)
+        frame = frame_bytes.decode()
+        self.PAYLOAD = "0"+ frame[8]
+        self.CRC = int(frame[-4:], 16)
+        
 
 class VRResponse(MeFrame):
     """
@@ -588,6 +647,7 @@ class MeCom:
         response_frame = response_frame[1:]
 
         # print(response_frame)
+
         query.set_response(response_frame)
 
         # did we encounter an error?
@@ -637,6 +697,32 @@ class MeCom:
 
         # return the query with response
         return vs
+    
+    def download_lookup_table(self, file, table_instances):
+        """
+        file: file path str
+        table instances: tables tu update.
+        """
+        table = Lookup_Table(file)
+        #Check that everything is correct
+        assert table.file_police(), "Check file format"
+        #Table instances to update
+        tables = table.extract_table_instances(table_instances)
+        byte_counter = 0
+        for ntable in range(len(table_instances)):
+            prepared_data = table.chunk_splitter(tables[ntable])
+            n = 0
+            packages = len(prepared_data)
+            print('-------------------------------')
+            print("Table instance "+ str(ntable)+".  0/"+str(packages)+" sent.")
+            for chunk in prepared_data:
+                dt = self._execute(TD(table_data=chunk, table_instance= table_instances[ntable], offset_bytes= byte_counter))
+                byte_counter += 256 
+                n +=1
+                assert dt.RESPONSE.PAYLOAD != "02", "Busy, new command was ignored"
+                if dt.RESPONSE.PAYLOAD == "03":
+                    print("Package" + str(n)+"/"+str(packages)+" sent.")
+        print('Lookup table downloaded')
 
     def get_parameter(self, parameter_name=None, parameter_id=None, *args, **kwargs):
         """

@@ -1,0 +1,241 @@
+"""
+control example
+"""
+
+import logging
+from mecom import MeCom, ResponseException, WrongChecksum
+from serial import SerialException
+import warnings
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+# default queries from command table below
+DEFAULT_QUERIES = [
+    "Device_status"
+    "current",
+    "max current",
+]
+
+# syntax
+# { display_name: [parameter_id, unit], }
+COMMAND_TABLE = {
+    "Device Status": [104, ""],
+    "current": [1016, "A"],
+    "max current": [3020, "A"]
+}
+
+class BlueLDD(object):
+    """
+    Controlling Laser diode devices via serial.
+    """
+
+    def _tearDown(self):
+        self.session().stop()
+
+    def __init__(self, port="COM6", channel=1, queries=DEFAULT_QUERIES, *args, **kwars):
+        assert channel in (1, 2)
+        self.channel = channel
+        self.port = port
+        self.queries = queries
+        self._session = None
+        self._connect()
+
+    def _connect(self):
+        # open session
+        self._session = MeCom(serialport=self.port,metype = 'LDD')
+        # get device address
+        self.address = self._session.identify()
+        logging.info("connected to {}".format(self.address))
+
+    def session(self):
+        if self._session is None:
+            self._connect()
+        return self._session
+
+    def get_data(self):
+        data = {}
+        for description in self.queries:
+            id, unit = COMMAND_TABLE[description]
+            try:
+                value = self.session().get_parameter(parameter_id=id, address=self.address, parameter_instance=self.channel)
+                data.update({description: (value, unit)})
+            except (ResponseException, WrongChecksum) as ex:
+                self.session().stop()
+                self._session = None
+        return data
+
+    def set_current_input_source(self, option:int):
+        """
+        Select between the input sources:
+        0: Internal generator
+        1: CW
+        2: Data Interfaces
+        3: HW Pin
+        4: LPC 
+        5: Look up Table
+        """
+        assert type(option) is int and option >= 0 and option <= 5, "only int 0,...,5 allowed"
+        options = ['Internal generator', 'CW', 'Data Interfaces', 'HW Pin', 'LPC', 'Look up Table']
+        logging.info("set current input source to ", options[option])
+        return self.session().set_parameter(value=option, parameter_id=2000, address=self.address, parameter_instance=self.channel)
+    
+    def download_lookup_table(self, file, table_instances = [1]):
+        """
+        Downloads lookup table
+        file: path (str)
+        table_instances: list 
+        """
+        assert type(table_instances) is list, "table_instances must be list type"
+        return self.session().download_lookup_table(file = file, table_instances=table_instances)
+    
+    def set_power_input_source(self, option:int):
+        """
+        Select between the input sources:
+        0: Internal generator
+        1: CW
+        2: Data Interfaces
+        3: Look up Table
+        """
+        assert type(option) is int and option >= 0 and option <= 3, "only int 0,...,5 allowed"
+        options = ['Internal generator', 'CW', 'Data Interfaces', 'HW Pin', 'LPC', 'Look up Table']
+        logging.info("set power input source to ", options[option])
+        return self.session().set_parameter(value=option, parameter_id=5000, address=self.address, parameter_instance=self.channel)
+    
+    def set_LP_CW(self, value):
+        """
+        Set power value in CW mode
+        value: float
+        """
+        assert type(value) is float, "value must be a float type"
+        logging("Set power in CW mode to {} W".format(self.channel, value))
+        return self.session().set_parameter(value=value, parameter_id=5001, address=self.address, parameter_instance=self.channel)
+    
+    def set_LP_signal(self, high_power=None, low_power=None, high_time=None, low_time=None, rise_time=None, fall_time=None):
+        """
+        High power: float. Max power (0...1000 W)
+        Low power: float. Min power (0...1000 W)
+        high time: float. Time at max power (1e-6...10 s)
+        low time: float. Time at min power (1e-6...10 s)
+        rise time: float. Time between min and max power (1e-6...10 s)
+        fall time: float. Time between max and min power(1e-6...10 s)
+        """
+        params = [high_power,low_power, high_time, low_time, rise_time, fall_time]
+        params_name = ['high_power','low_power', 'high_time', 'rise_time', 'fall_time' ]
+        params_units = ['W','W', 's', 's','s','s']
+        for i in range(6):
+            if params[i] != None:
+                logging.info("Set "+params_name[i]+"  to "+str(params[i])+" " +params_units[i])
+                id= 5002 + i
+                self.session().set_parameter(value=params[i], parameter_id=id, address=self.address, parameter_instance=self.channel)
+
+    def set_PID_LPC_params(self, Kp = None, Ki=None, Kd = None, slope_lim= None):
+        """
+        Kp: float. (1E-3...1000 A/W)
+        Ki: float. (1E-6...10 s)
+        high time: float.  (0...10 s)
+        low time: float. (1E-6...1 W/us)
+        """
+        params = [Kp, Ki, Kd, slope_lim]
+        params_name = ['Kp','Ki', 'Kd', 'slope limit']
+        params_units = ['A/W', 's', 's', 'W/us']
+        for i in range(4):
+            if params[i] != None:
+                logging.info("Set "+params_name[i]+"  to "+str(params[i])+" " +params_units[i])
+                id= 5010 + i
+                self.session().set_parameter(value=params[i], parameter_id=id, address=self.address, parameter_instance=self.channel)
+
+    def get_PD_current(self):
+        """
+        Returns photodiode current, must be < 1mA
+        """
+        value = self.session().get_parameter(parameter_id=1060, address=self.address, parameter_instance=self.channel)
+        print(value, ' A')
+        if value > 0.001 : warnings.warn('Photocurrent larger than thresold (1 mA), reduce it!!') 
+        return value
+
+    
+    def set_current(self, value):
+        """
+        Set laser diode cw current
+        :param value: float
+        :param channel: int
+        :return:
+        """
+        # assertion to explicitly enter floats
+        assert type(value) is float
+        logging.info("set current to {} C".format(self.channel, value))
+        return self.session().set_parameter(parameter_id=2001, value=value, address=self.address, parameter_instance=self.channel)
+
+    def set_lookup_table_setings(self, Interval = None, selection = None):
+        """
+        Interval: int. (0 ... 1e7us)
+        selection: int. Number of the 4 possible tables (0...3)
+        """
+        params = [Interval, selection]
+        params_name = ['Interval', 'Table']
+        params_units = ['us', '']
+        for i in range(2):
+            if params[i] != None:
+                logging.info("Set "+params_name[i]+"  to "+str(params[i])+" " +params_units[i])
+                id= 4200 + 10*i
+                self.session().set_parameter(value=params[i], parameter_id=id, address=self.address, parameter_instance=self.channel)
+
+    def set_current_limit(self, value):
+        """
+        Set laser diode cw current limit
+        :param value: float
+        :param channel: int
+        :return:
+        """
+        # assertion to explicitly enter floats
+        assert type(value) is float
+        logging.info("set current limit to {} C".format(self.channel, value))
+        return self.session().set_parameter(parameter_id=3020, value=value, address=self.address, parameter_instance=self.channel)
+
+    def _set_enable(self, enable=True):
+        """
+        Enable or disable control loop
+        :parlam enable: bool
+        :param channel: int
+        :return:
+        """
+        value, description = (1, "on") if enable else (0, "off")
+        logging.info("set current output to {} to {}".format(self.channel, description))
+        return self.session().set_parameter(value=value, parameter_id=2020, address=self.address, parameter_instance=self.channel)
+
+    def enable(self):
+        return self._set_enable(True)
+
+    def disable(self):
+        return self._set_enable(False)
+    
+    def send_other_command(self, id, function, value = None):
+        """
+        Allows sending commands not specified above.
+        Id: command ID. Use the MeCom documentation to find the command Id.
+        function: 0: get, 1: set.
+        value: value to set. Check the documentation to send it in the propper format.
+        """
+        if function == 0:
+            value = self.session().get_parameter(parameter_id=id, address=self.address, parameter_instance=self.channel)
+            return value
+        elif function ==1:
+            return self.session().set_parameter(parameter_id=id, value = value, address=self.address, parameter_instance=self.channel)
+
+
+def pulse_shape(ramp_time, high_time, high_power, sampling_time):
+    high_points = high_time//sampling_time
+    ramp_points = ramp_time//sampling_time
+    ramp_angles = np.linspace(0,np.pi/2, int(ramp_points))
+    ramp_up = high_power * np.sin(ramp_angles)**2
+    ramp_down = high_power * np.sin(ramp_angles+np.pi/2)**2
+    high = np.ones(int(high_points))*high_power
+    sequence = np.concatenate((ramp_up,high,ramp_down))
+    np.savetxt('blue_pulse.csv', sequence.reshape(-1, 1), delimiter= ';', fmt = '%.5f')
+    plt.plot(np.arange(0,len(sequence))/100,sequence)
+    plt.xlabel('Time (ms)')
+    plt.ylabel('Power(W)')
+    plt.show()
+    
+    return sequence
