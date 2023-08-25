@@ -61,6 +61,7 @@ LDD_PARAMETERS = [
     {"id": 3020, "name": "Current Limit Max [A]", "format": "FLOAT32"},
     {"id": 3040, "name": "Device Address", "format": "INT32"},
     #Current Tab
+    {"id": 2009, "name": "Single Sequence", "format": "INT32"},
     {"id": 2001, "name": "Current CW", "format": "FLOAT32"},
     {"id": 2000, "name": "Input Source", "format": "INT32"},
     {"id": 2020, "name": "Enable Settings", "format": "INT32"},
@@ -98,7 +99,8 @@ LDD_PARAMETERS = [
     {"id": 1060, "name": "Photo Diode Current", "format": "FLOAT32"}, 
     #Lookup table
     {"id": 4200, "name": "Table Interval", "format": "INT32"}, 
-    {"id": 4210, "name": "Table Select", "format": "INT32"}
+    {"id": 4210, "name": "Table Select", "format": "INT32"},
+    {"id": 3080, "name": "PBC RESx", "format": "INT32"} #the param instance defines the RESx 
 ]
     
 ERRORS = [

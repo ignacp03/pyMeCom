@@ -64,6 +64,24 @@ class BlueLDD(object):
                 self.session().stop()
                 self._session = None
         return data
+    
+    def single_sequence(self, get = False, set = None ):
+        """
+        Allows to trigger a single sequence by a analog logic input. For this to work 
+        PBC RES4 must be set to: Single sequence in the settings tab of the sequence or command 3080
+        must be send to the instance 4 with the value 10. 
+
+        If get is set to true, the function returns the current state.
+        If option is set to 0 (1), it sets OFF (ON).
+        """
+        if get:
+            value = self.session().get_parameter(parameter_id=2009, address=self.address, parameter_instance=self.channel)
+            if value == 1: print('Single sequence is currently ON')
+            if value == 0: print('Single sequence is currently OFF')
+        if set is not None:
+            sent = self.session().set_parameter(value=set, parameter_id=2009, address=self.address, parameter_instance=self.channel)
+            if set == 1: print('Single sequence set to ON:', sent)
+            if set == 0: print('Single sequence set to OFF:', sent)
 
     def set_current_input_source(self, option:int):
         """
