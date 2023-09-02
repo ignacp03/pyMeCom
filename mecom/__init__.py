@@ -10,3 +10,4 @@ lookup_table.py has auxiliary functions for lookup table downloading.
 
 from .mecom import MeCom, VR, VS, TD, Parameter
 from .exceptions import ResponseException, WrongChecksum
+from .lookup_table import LT_download_manager

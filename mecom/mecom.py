@@ -12,7 +12,6 @@ from serial import Serial
 from PyCRC.CRCCCITT import CRCCCITT
 
 # from this package
-from .lookup_table import Lookup_Table
 from .exceptions import ResponseException, WrongResponseSequence, WrongChecksum, ResponseTimeout, UnknownParameter, UnknownMeComType
 from .commands import TEC_PARAMETERS, LDD_PARAMETERS, ERRORS
 
@@ -310,6 +309,7 @@ class VS(Query):
         
         
 class TD(Query):
+    ### Currently not in use, execution of the download table command in a separate environment for testing purposes
     """
     Implementing Lookup table download
     """
@@ -373,6 +373,7 @@ class IF(Query):
 
 
 class TDResponse(MeFrame):
+    ### Currently not in use, execution of the download table command in a separate environment for testing purposes
     """
     Frame for the device response to TD querry
     """
@@ -698,31 +699,39 @@ class MeCom:
         # return the query with response
         return vs
     
-    def download_lookup_table(self, file, table_instances):
+    def execute_lookup_table(self, payload):
         """
-        file: file path str
-        table instances: tables tu update.
+        Payload: raw commaand with the data of the table
         """
-        table = Lookup_Table(file)
-        #Check that everything is correct
-        assert table.file_police(), "Check file format"
-        #Table instances to update
-        tables = table.extract_table_instances(table_instances)
-        byte_counter = 0
-        for ntable in range(len(table_instances)):
-            prepared_data = table.chunk_splitter(tables[ntable])
-            n = 0
-            packages = len(prepared_data)
-            print('-------------------------------')
-            print("Table instance "+ str(ntable)+".  0/"+str(packages)+" sent.")
-            for chunk in prepared_data:
-                dt = self._execute(TD(table_data=chunk, table_instance= table_instances[ntable], offset_bytes= byte_counter))
-                byte_counter += 256 
-                n +=1
-                assert dt.RESPONSE.PAYLOAD != "02", "Busy, new command was ignored"
-                if dt.RESPONSE.PAYLOAD == "03":
-                    print("Package" + str(n)+"/"+str(packages)+" sent.")
-        print('Lookup table downloaded')
+        self.ser_lock.acquire()
+        com_query = "#01"+"{:04X}".format(self.SEQUENCE)+payload
+        crc = CRCCCITT().calculate(input_data=com_query)
+        cr = "\r"
+        com_query += crc+cr
+        try:
+            # clear buffers
+            self.ser.reset_output_buffer()
+            self.ser.reset_input_buffer()
+            # send query
+            self.ser.write(com_query)
+            # flush write cache
+            self.ser.flush()# initialize response and carriage return
+            cr = "\r".encode()
+            response_frame = b''
+            response_byte = self._read(size=1)  # read one byte at a time, timeout is set on instance level
+            # read until stop byte
+            while response_byte != cr:
+                response_frame += response_byte
+                response_byte = self._read(size=1)
+        finally:
+            # increment sequence counter
+            self._inc()
+            self.ser_lock.release()
+
+        # strip source byte (! or #, but for a response always !)
+        return int(response_frame[8])
+        
+        
 
     def get_parameter(self, parameter_name=None, parameter_id=None, *args, **kwargs):
         """

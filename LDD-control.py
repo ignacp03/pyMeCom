@@ -3,7 +3,7 @@ control example
 """
 
 import logging
-from mecom import MeCom, ResponseException, WrongChecksum
+from mecom import MeCom, ResponseException, WrongChecksum, LT_download_manager
 from serial import SerialException
 import warnings
 import numpy as np
@@ -98,14 +98,15 @@ class BlueLDD(object):
         logging.info("set current input source to ", options[option])
         return self.session().set_parameter(value=option, parameter_id=2000, address=self.address, parameter_instance=self.channel)
     
-    def download_lookup_table(self, file, table_instances = [1]):
+    def download_lookup_table(self, file):
         """
         Downloads lookup table
         file: path (str)
         table_instances: list 
         """
-        assert type(table_instances) is list, "table_instances must be list type"
-        return self.session().download_lookup_table(file = file, table_instances=table_instances)
+        DM = LT_download_manager(file, self.session())
+        
+        return self.session().download_lookup_table(file = file)
     
     def set_power_input_source(self, option:int):
         """
