@@ -14,7 +14,8 @@ class LT_download_manager():
         Does the whole sequence
         """
         LutByteData, LutByteLength = self.LUT_OpenCSVFile()
-        self.LUT_DownloadManager(LutByteData,LutByteLength)    
+        execution = self.LUT_DownloadManager(LutByteData,LutByteLength) 
+        return execution   
     
     def LUT_OpenCSVFile(self):
         """
@@ -228,23 +229,31 @@ class LT_download_manager():
                     print( "Error. Tables not ok. Please Try again.")
                     #progressBar_LUT_Download.Value = 0
                     status = 0
+        return download_completed
 
     def LUT_DownloadPage(self, data,cmd = 1 , tableInst=1, byteOffset=0 ):
         """
         Queries the command
         """
-        txBuffer = bytearray(600)
-        txBuffer[0] = ord('?')
-        txBuffer[1] = ord('T')
-        txBuffer[2] = ord('D')
-        txBuffer[3:5] = "{:02X}".format(cmd)
+        #txBuffer = bytearray(600)
+        #txBuffer[0] = ord('?')
+        #txBuffer[1] = ord('T')
+        #txBuffer[2] = ord('D')
+        #txBuffer[3:5] = "{:02X}".format(cmd)
+        txBuffer = ''
+        txBuffer += '?TD'
+        txBuffer += "{:02X}".format(cmd)
     
         if cmd == 1:
-            txBuffer[5:7] = "{:02X}".format(tableInst)
-            txBuffer[7:15] = "{:08X}".format(byteOffset)
+            #txBuffer[5:7] = "{:02X}".format(tableInst)
+            txBuffer += "{:02X}".format(tableInst)
+            #txBuffer[7:15] = "{:08X}".format(byteOffset)
+            txBuffer += "{:08X}".format(byteOffset)
+
         
             for i in range(256):
-                txBuffer[15 + i * 2:17 + i * 2] = "{:02X}".format(data[i])
+                #txBuffer[15 + i * 2:17 + i * 2] = "{:02X}".format(data[i])
+                txBuffer += "{:02X}".format(data[i])
         
             response = self.session.execute_lookup_table(txBuffer)  ## function to send the command
                 #CommError()

@@ -105,8 +105,9 @@ class BlueLDD(object):
         table_instances: list 
         """
         DM = LT_download_manager(file, self.session())
+        download = DM.download_table()
         
-        return self.session().download_lookup_table(file = file)
+        return DM
     
     def set_power_input_source(self, option:int):
         """
@@ -243,18 +244,3 @@ class BlueLDD(object):
             return self.session().set_parameter(parameter_id=id, value = value, address=self.address, parameter_instance=self.channel)
 
 
-def pulse_shape(ramp_time, high_time, high_power, sampling_time):
-    high_points = high_time//sampling_time
-    ramp_points = ramp_time//sampling_time
-    ramp_angles = np.linspace(0,np.pi/2, int(ramp_points))
-    ramp_up = high_power * np.sin(ramp_angles)**2
-    ramp_down = high_power * np.sin(ramp_angles+np.pi/2)**2
-    high = np.ones(int(high_points))*high_power
-    sequence = np.concatenate((ramp_up,high,ramp_down))
-    np.savetxt('blue_pulse.csv', sequence.reshape(-1, 1), delimiter= ';', fmt = '%.5f')
-    plt.plot(np.arange(0,len(sequence))/100,sequence)
-    plt.xlabel('Time (ms)')
-    plt.ylabel('Power(W)')
-    plt.show()
-    
-    return sequence
