@@ -1,6 +1,10 @@
 
 import struct
 from .mecom import MeCom
+from crccheck.crc import Crc32, CrcXmodem
+from PyCRC.CRC32 import CRC32
+from PyCRC.CRCCCITT import CRCCCITT
+from binascii import crc32
 
 class LT_download_manager():
     def __init__(self, filepath, session):
@@ -13,7 +17,7 @@ class LT_download_manager():
         """
         Does the whole sequence
         """
-        LutByteData, LutByteLength = self.LUT_OpenCSVFile()
+        LutByteData, LutByteLength, fData = self.LUT_OpenCSVFile()
         execution = self.LUT_DownloadManager(LutByteData,LutByteLength) 
         return execution   
     
@@ -126,22 +130,33 @@ class LT_download_manager():
                 return
 
             # Add the static Fields
+
             LutByteLength[self.InstToAdr(tableInst)] = (fLength[self.InstToAdr(tableInst)] * 4) + 12
             tableType = 0
+            checksum_test = [0]*LutByteLength[self.InstToAdr(tableInst)]
             LutByteData[self.InstToAdr(tableInst)][4:8] = LutByteLength[self.InstToAdr(tableInst)].to_bytes(4, 'little')
+            checksum_test[4] = LutByteLength[self.InstToAdr(tableInst)]
             LutByteData[self.InstToAdr(tableInst)][8:12] = tableType.to_bytes(4, 'little')
+            checksum_test[8] = tableType
 
             # Add the data
             for i in range(fLength[self.InstToAdr(tableInst)]):
-                float_bytes = struct.pack("<f", fData[self.InstToAdr(tableInst)][i])
-                LutByteData[self.InstToAdr(tableInst)][12 + i * 4:16 + i * 4:] = float_bytes
+                float_bytes = struct.unpack('<I',struct.pack("<f", fData[self.InstToAdr(tableInst)][i]))[0]
+                LutByteData[self.InstToAdr(tableInst)][12 + i * 4:16 + i * 4:] = float_bytes.to_bytes(4,'little')
+                checksum_test[12+4*i] = float_bytes
+                #crc_buffer += '{:08X}'.format(struct.unpack('<I',float_bytes )[0])
 
             # Calculate and add the CRC (exclude the first 4 bytes, because this is the place for the CRC)
             crc = self.LUT_CalcCrcOfByteArray(LutByteData[self.InstToAdr(tableInst)][4:], LutByteLength[self.InstToAdr(tableInst)] - 4)
+            #crc = self.calculate_crc32(crc_buffer)
+            #crc = CRCCCITT().calculate(crc_buffer.encode())
+            #crc = self.LUT_CalcCrcOfByteArray(checksum_test, len(checksum_test))
+            print(crc)
             LutByteData[self.InstToAdr(tableInst)][0:4] = crc.to_bytes(4, 'little')
+            print(LutByteData[self.InstToAdr(tableInst)])
 
         print("Lookup Table loaded successfully.")
-        return LutByteData, LutByteLength 
+        return LutByteData, LutByteLength , fData
     
     def LUT_DownloadManager(self,LutByteData,LutByteLength):
         """
@@ -163,7 +178,7 @@ class LT_download_manager():
                     if LutByteLength[self.InstToAdr(inst)] == 0:
                         continue
                     totalBytesToDownload += (((LutByteLength[self.InstToAdr(inst)] - 1) // 256) + 1) * 256
-                    print(totalBytesToDownload)
+                print('Total Bytes to download: ', totalBytesToDownload)
                 status = 1
             if status == 1:
                 #check wether the table has data
@@ -240,10 +255,11 @@ class LT_download_manager():
         #txBuffer[1] = ord('T')
         #txBuffer[2] = ord('D')
         #txBuffer[3:5] = "{:02X}".format(cmd)
+
         txBuffer = ''
         txBuffer += '?TD'
         txBuffer += "{:02X}".format(cmd)
-    
+
         if cmd == 1:
             #txBuffer[5:7] = "{:02X}".format(tableInst)
             txBuffer += "{:02X}".format(tableInst)
@@ -252,9 +268,13 @@ class LT_download_manager():
 
         
             for i in range(256):
+                if type(data[i]) is int:
                 #txBuffer[15 + i * 2:17 + i * 2] = "{:02X}".format(data[i])
-                txBuffer += "{:02X}".format(data[i])
-        
+                    txBuffer += "{:02X}".format(data[i])
+                else:
+                    txBuffer += "{:02X}".format(int(0))
+                    
+            print('Sending to mecom')
             response = self.session.execute_lookup_table(txBuffer)  ## function to send the command
                 #CommError()
 
@@ -272,12 +292,13 @@ class LT_download_manager():
         Computes the CRC32
         """
         crc = OldCRC ^ data_byte
-        for _ in range(8):
-            if crc & 1:
-                crc = (crc >> 1) ^ 0xEDB88320
+        for _ in range(32):
+            if crc & 0x80000000:
+                crc = (crc << 1)%(0xFFFFFFFF + 1)
+                crc = crc ^ 0x04C11DB7
             else:
-                crc >>= 1
-        return crc & 0xFFFFFFFF
+                crc = (crc<<1)%(0xFFFFFFFF)
+        return crc   
     
     def InstToAdr(self,tableInst):
         """ 
@@ -295,4 +316,16 @@ class LT_download_manager():
         for i in range(length):
             OldCRC = self.CRC32Calc(OldCRC, data[i])
         return OldCRC
+    
+    def calculate_crc32(self, data):
+        crc = 0xFFFFFFFF
+        POLYNOMIAL = 0x04C11DB7
+        for byte in data:
+            crc ^= byte << 24
+            for _ in range(8):
+                if crc & 0x80000000:
+                    crc = (crc << 1) ^ POLYNOMIAL
+                else:
+                    crc <<= 1
+        return crc & 0xFFFFFFFF
     

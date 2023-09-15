@@ -705,7 +705,7 @@ class MeCom:
         """
         self.ser_lock.acquire()
         com_query = "#01"+"{:04X}".format(self.SEQUENCE)+payload
-        crc = CRCCCITT().calculate(input_data=com_query)
+        crc = CRCCCITT().calculate(input_data=com_query.endode())
         cr = "\r"
         com_query += crc+cr
         try:
@@ -729,7 +729,7 @@ class MeCom:
             self.ser_lock.release()
 
         # strip source byte (! or #, but for a response always !)
-        return int(response_frame[8])
+        return int(response_frame.decode()[8])
         
         
 
