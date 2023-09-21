@@ -94,9 +94,12 @@ class BlueLDD(object):
         5: Look up Table
         """
         assert type(option) is int and option >= 0 and option <= 5, "only int 0,...,5 allowed"
-        options = ['Internal generator', 'CW', 'Data Interfaces', 'HW Pin', 'LPC', 'Look up Table']
-        logging.info("set current input source to ", options[option])
-        return self.session().set_parameter(value=option, parameter_id=2000, address=self.address, parameter_instance=self.channel)
+        options = ['Internal generator', 'CW', 'Data Interfaces', 'HW Pin', 'Laser Power Control', 'Look up Table']
+        response = self.session().set_parameter(value=option, parameter_id=2000, address=self.address, parameter_instance=self.channel)
+        if response == True:
+            print('The current input source was set to: '+options[option])
+        else:
+            print('There was an eror sending the command')
     
     def download_lookup_table(self, file):
         """
@@ -118,9 +121,12 @@ class BlueLDD(object):
         3: Look up Table
         """
         assert type(option) is int and option >= 0 and option <= 3, "only int 0,...,5 allowed"
-        options = ['Internal generator', 'CW', 'Data Interfaces', 'HW Pin', 'LPC', 'Look up Table']
-        logging.info("set power input source to ", options[option])
-        return self.session().set_parameter(value=option, parameter_id=5000, address=self.address, parameter_instance=self.channel)
+        options = ['Internal generator', 'CW', 'Data Interfaces (Ramp mode)', 'HW Pin', 'LPC', 'Look up Table']
+        response = self.session().set_parameter(value=option, parameter_id=5000, address=self.address, parameter_instance=self.channel) 
+        if response == True:
+            print('Power input set to: '+options[option])
+        else:
+            print('There was an error sending the command')
     
     def set_LP_CW(self, value):
         """
@@ -131,7 +137,7 @@ class BlueLDD(object):
         logging("Set power in CW mode to {} W".format(self.channel, value))
         return self.session().set_parameter(value=value, parameter_id=5001, address=self.address, parameter_instance=self.channel)
     
-    def set_LP_signal(self, high_power=None, low_power=None, high_time=None, low_time=None, rise_time=None, fall_time=None):
+    def set_LP_signal(self, high_power,high_time, rise_time, fall_time = None, low_power = 0, low_time = 1e-6 ):
         """
         High power: float. Max power (0...1000 W)
         Low power: float. Min power (0...1000 W)
@@ -140,14 +146,23 @@ class BlueLDD(object):
         rise time: float. Time between min and max power (1e-6...10 s)
         fall time: float. Time between max and min power(1e-6...10 s)
         """
+        if fall_time == None:
+            fall_time = rise_time
+
         params = [high_power,low_power, high_time, low_time, rise_time, fall_time]
-        params_name = ['high_power','low_power', 'high_time', 'rise_time', 'fall_time' ]
+        commands = ['High Power', 'Low Power', 'High Time', 'Low Time', 'Rise Time', 'Fall Time']
         params_units = ['W','W', 's', 's','s','s']
+        response = []
         for i in range(6):
-            if params[i] != None:
-                logging.info("Set "+params_name[i]+"  to "+str(params[i])+" " +params_units[i])
-                id= 5002 + i
-                self.session().set_parameter(value=params[i], parameter_id=id, address=self.address, parameter_instance=self.channel)
+            id= 5002 + i
+            response.append(self.session().set_parameter(value=params[i], parameter_id=id, address=self.address, parameter_instance=self.channel))
+
+        if all(response) == True:
+            print('Ramp pulse parameters succesfully loaded')
+        else:
+            for i in range(len(response)):
+                if response[i] != True: print('There was an error loading: '+commands[i])
+
 
     def set_PID_LPC_params(self, Kp = None, Ki=None, Kd = None, slope_lim= None):
         """
