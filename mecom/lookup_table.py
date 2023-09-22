@@ -1,7 +1,7 @@
 
 import struct
 from .mecom import MeCom
-from crccheck.crc import Crc32, CrcXmodem
+#from crccheck.crc import Crc32, CrcXmodem
 from PyCRC.CRC32 import CRC32
 from PyCRC.CRCCCITT import CRCCCITT
 from binascii import crc32

@@ -23,9 +23,11 @@ def sin_square_with_plateau(ramp_time, high_time, high_power, sampling_time, gen
             f.write(first_column[i]+'; '+str(sequence[i][0])+'\n')
         f.close()
 
-def general_sigmoid_offset(offset_time, ramp_time, high_time, high_power, sampling_time, generate_csvfile = False):
+def general_sigmoid_offset(offset_time, ramp_time, high_time, high_power, sampling_time, csvfile = None):
     """"
     All times in us
+    csvfile = None --> LT not stored
+    csvfile = Path --> LT saved in path
     """
     
     high_points = high_time//sampling_time
@@ -42,10 +44,10 @@ def general_sigmoid_offset(offset_time, ramp_time, high_time, high_power, sampli
     plt.xlabel('Time (ms)')
     plt.ylabel('Power(W)')
     plt.show()
-    if generate_csvfile:
+    if csvfile != None:
         sequence = sequence.reshape(-1, 1)
         first_column = ['']*len(sequence)
-        f = open("general_sigmoid_offset.csv", "w")
+        f = open(csvfile, "w")
         f.write('Table Instance ; 1\n')
         for i in range(len(sequence)):
             f.write(first_column[i]+'; '+str(sequence[i][0])+'\n')
