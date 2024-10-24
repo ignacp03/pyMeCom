@@ -2,9 +2,6 @@
 A python interface for the MeCom protocol by Meerstetter.
 This package was developed to control several TEC devices on a raspberry pi by connecting them via usb, and modified to control an LDD board using a script.
 
-## Problems
-When using lookup_table download it returns that the command was accepted. However, when you use the lookup table as input source it crashes and the ldd must be reset. I looks like the format is not right, so the payload of the query must be incorrect. Couldn't find it in the documentation, maybe contact the company??
-
 ## Requirements
 1. this code is only tested in Python 3 running in a linux OS
 1. `pySerial` in a version `>= 3.1` https://pypi.python.org/pypi/pyserial
